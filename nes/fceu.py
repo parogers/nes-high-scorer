@@ -15,9 +15,24 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import mmap
+import psutil
+import re
 
 DEFAULT_SHM_PATH = '/dev/shm/fceu-shm'
 
 def open_shm(path=DEFAULT_SHM_PATH):
     with open(path, 'r+b') as file:
         return mmap.mmap(file.fileno(), 0)
+
+def get_proc():
+    for proc in psutil.process_iter():
+        if 'retroarch' in proc.name().lower():
+            return proc
+    return None
+
+def is_tetris_running():
+    # TODO - a bit of a hack
+    proc = get_proc()
+    return proc and any(
+        re.match('.*tetris.*nes', arg.lower()) for arg in proc.cmdline())
+

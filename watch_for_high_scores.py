@@ -49,6 +49,11 @@ def check_for_new_entries(old_entries, new_entries):
 # out a new high score whenever it appears in the list.
 last_entries = []
 while True:
+    # Make sure tetris is being played
+    if not nes.fceu.is_tetris_running():
+        time.sleep(10)
+        continue
+    
     try:
         entries = read_high_scores_from_ram()
     except FileNotFoundError:
