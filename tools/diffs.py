@@ -17,9 +17,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import mmap
-import fceu
+import nes, nes.fceu
 
-m = fceu.open_shm()
+m = nes.fceu.open_shm()
 
 snapshot = m[:]
 tracking = set(range(len(snapshot)))

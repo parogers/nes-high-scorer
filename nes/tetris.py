@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import fceu
+from . import fceu
 from collections import namedtuple
 
 LETTER_MAP = '-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789,/()\". '
@@ -25,18 +25,30 @@ def byte_to_char(ch):
     except IndexError:
         return ' '
 
-HighScoreEntry = namedtuple('HighScoreEntry', ('name', 'score', 'level'))
+# TODO - this is a bit ugly
+high_score_entry = namedtuple(
+    'HighScoreEntry', ('rank', 'game_type', 'name', 'score', 'level'))
+
+class HighScoreEntry(high_score_entry):
+    # We don't want to include ranking in the equality test (since scores
+    # can move around in ranking, but they are the same score)
+    def __eq__(self, other):
+        return (self.name == other.name and
+                self.score == other.score and
+                self.level == other.level and
+                self.game_type == other.game_type)
+        
 
 HIGH_SCORES_A = (
-    HighScoreEntry(0x700, 0x730, 0x748),
-    HighScoreEntry(0x706, 0x733, 0x749),
-    HighScoreEntry(0x70c, 0x736, 0x74a),
+    HighScoreEntry(1, 'A', 0x700, 0x730, 0x748),
+    HighScoreEntry(2, 'A', 0x706, 0x733, 0x749),
+    HighScoreEntry(3, 'A', 0x70c, 0x736, 0x74a),
 )
 
 HIGH_SCORES_B = (
-    HighScoreEntry(0x718, 0x73c, 0x74c),
-    HighScoreEntry(0x71d, 0x73f, 0x74d),
-    HighScoreEntry(0x724, 0x742, 0x74e),
+    HighScoreEntry(1, 'B', 0x718, 0x73c, 0x74c),
+    HighScoreEntry(2, 'B', 0x71d, 0x73f, 0x74d),
+    HighScoreEntry(3, 'B', 0x724, 0x742, 0x74e),
 )
 
 VERTICAL_POS = 0x61
@@ -45,9 +57,9 @@ CURRENT_PIECE = 0xbf
 
 LINE_PIECE = 18
 
-def get_high_scores_by_table(ram, table):
+def get_high_scores_by_table(ram, table, game_type):
     lst = []
-    for entry in table:
+    for count, entry in enumerate(table):
         name = ram[entry.name:entry.name+6]
         score = ram[entry.score:entry.score+3]
         level = ram[entry.level]
@@ -55,20 +67,17 @@ def get_high_scores_by_table(ram, table):
         name = "".join(byte_to_char(ch) for ch in name).strip()
         # Note: the score is BCD encoded
         score = int("".join('%02x' % ch for ch in score))
-        lst.append(HighScoreEntry(name, score, level))
+        lst.append(HighScoreEntry(count+1, game_type, name, score, level))
     return lst
 
 def get_high_scores(ram):
-    """Extracts and returns the high scores from the given block of RAM. 
-    This returns a 2-tuple of two lists: A-type, and B-type scores. Each
-    entry in thoses lists are HighScoreEntry types."""
+    """Extracts and returns the high scores from the given block of RAM."""
     return (
-        get_high_scores_by_table(ram, HIGH_SCORES_A),
-        get_high_scores_by_table(ram, HIGH_SCORES_B))
+        get_high_scores_by_table(ram, HIGH_SCORES_A, 'A') +
+        get_high_scores_by_table(ram, HIGH_SCORES_B, 'B'))
 
 if __name__ == '__main__':
     ram = fceu.open_shm()
-    a_type, b_type = get_high_scores(ram)
-    for entry in a_type + b_type:
+    for entry in get_high_scores(ram):
         print(entry.name, entry.score, entry.level)
 
