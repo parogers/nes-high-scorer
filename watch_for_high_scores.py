@@ -5,6 +5,7 @@ import json
 import os
 import nes, nes.fceu, nes.tetris
 import time
+import sys
 
 from nes.tetris import HighScoreEntry
 
@@ -25,8 +26,8 @@ def post_tweet(msg):
 
     print(api.VerifyCredentials())
 
-    #status = api.PostUpdate('Hello, World!')
-    #print(status, status.text)
+    status = api.PostUpdate(msg)
+    print(status, status.text)
 
 def read_high_scores_from_ram():
     ram = nes.fceu.open_shm()
@@ -45,6 +46,12 @@ def check_for_new_entries(old_entries, new_entries):
         entry for entry in new_entries
         if entry not in old_entries and not entry in ignored]
 
+def make_tweet(entry):
+    # bytes([0xF0, 0x9F, 0x8E, 0x86])
+    fmt = 'Congrats {}!!! You scored {:,} pts, reaching L{} ({}-type)'
+    return fmt.format(
+        entry.name, entry.score, entry.level, entry.game_type)
+
 # Periodically read NES memory to get a list of high scores. We tweet
 # out a new high score whenever it appears in the list.
 last_entries = []
@@ -61,11 +68,15 @@ while True:
         pass
     else:
         new_entries = check_for_new_entries(last_entries, entries)
-        if new_entries:
+        if new_entries and last_entries:
             print('New high scores:')
             for entry in new_entries:
-                print(entry.game_type, entry.name,
-                      entry.level, entry.score)
+                #print(entry.game_type, entry.name,
+                #      entry.level, entry.score)
+
+                msg = make_tweet(entry)
+                print(msg)
+
             print('')
 
         last_entries = entries
