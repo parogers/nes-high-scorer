@@ -45,8 +45,7 @@ def post_tweet(msg):
         consumer_secret=secrets['consumer_secret'],
         access_token_key=secrets['access_token_key'],
         access_token_secret=secrets['access_token_secret'])
-
-    print(api.VerifyCredentials())
+    api.VerifyCredentials()
 
     status = api.PostUpdate(msg)
     print(status, status.text)
@@ -108,13 +107,11 @@ while True:
             entries = nes.tetris.get_high_scores(ram)
             new_entries = check_for_new_entries(last_entries, entries)
 
-            print('New high scores:')
+            print('*** New high scores:')
             for entry in new_entries:
-                #print(entry.game_type, entry.name,
-                #      entry.level, entry.score)
-
                 msg = make_tweet(entry)
                 print(msg)
+                post_tweet(msg)
 
             print('')
 
