@@ -31,6 +31,7 @@ def get_proc():
     return None
 
 def is_tetris_running():
+    """Make a reasonable guess as to whether tetris is being played"""
     # TODO - a bit of a hack
     proc = get_proc()
     return proc and any(
