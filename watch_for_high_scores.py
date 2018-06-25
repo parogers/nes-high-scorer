@@ -24,11 +24,23 @@ import nes, nes.fceu, nes.tetris
 import time
 import sys
 
+#
 # TODO - at the moment this only supports high-scoring in tetris, but
 # the code here could be generalized to support other games
+#
+# To get this code running on your machine, you'll first need a twitter
+# account, create an app, and generate all the credentials. This happens at:
+#
+# https://developer.twitter.com/
+#
+# Make the folder '~/.config/nes-high-scorer/' and copy + paste the
+# credentials into a file there called 'secrets'. Have a look at the example
+# file 'secrets.sample'.
+#
 
 from nes.tetris import HighScoreEntry
 
+# How frequently to check for a new high score
 DELAY = 1
 
 def get_config_dir():
@@ -74,6 +86,9 @@ def make_tweet(entry):
     fmt = 'Congrats {}!!! You scored {:,} pts and reached L{} ({}-type)'
     return fmt.format(
         name, entry.score, entry.level, entry.game_type)
+
+# Santiy check for secrets
+read_secrets()
 
 # Periodically read NES memory to get a list of high scores. We tweet
 # out a new high score whenever it appears in the list.
