@@ -66,7 +66,12 @@ def get_high_scores_by_table(ram, table, game_type):
 
         name = "".join(byte_to_char(ch) for ch in name).strip()
         # Note: the score is BCD encoded
-        score = int("".join('%02x' % ch for ch in score))
+        try:
+            score = int("".join('%02x' % ch for ch in score))
+        except:
+            # If the score isn't valid, the table probably isn't valid
+            return None
+
         lst.append(HighScoreEntry(count+1, game_type, name, score, level))
     return lst
 

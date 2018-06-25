@@ -43,6 +43,15 @@ from nes.tetris import HighScoreEntry
 # How frequently to check for a new high score
 DELAY = 1
 
+IGNORED_ENTRIES = (
+    HighScoreEntry(1, 'A', 'HOWARD', 10000, 9),
+    HighScoreEntry(2, 'A', 'OTASAN', 7500, 5),
+    HighScoreEntry(3, 'A', 'LANCE', 5000, 0),
+    HighScoreEntry(1, 'B', 'ALEX', 2000, 9),
+    HighScoreEntry(2, 'B', 'TONY', 1000, 5),
+    HighScoreEntry(3, 'B', 'NINTEN', 500, 0),
+)
+
 def get_config_dir():
     return os.path.join(os.getenv('HOME'), '.config', 'nes-high-scorer')
 
@@ -63,17 +72,9 @@ def post_tweet(msg):
     print(status, status.text)
 
 def check_for_new_entries(old_entries, new_entries):
-    ignored = (
-        HighScoreEntry(1, 'A', 'HOWARD', 10000, 9),
-        HighScoreEntry(2, 'A', 'OTASAN', 7500, 5),
-        HighScoreEntry(3, 'A', 'LANCE', 5000, 0),
-        HighScoreEntry(1, 'B', 'ALEX', 2000, 9),
-        HighScoreEntry(2, 'B', 'TONY', 1000, 5),
-        HighScoreEntry(3, 'B', 'NINTEN', 500, 0),
-    )
     return [
         entry for entry in new_entries
-        if entry not in old_entries and not entry in ignored]
+        if entry not in old_entries and not entry in IGNORED_ENTRIES]
 
 def make_tweet(entry):
     # Fix the name by stripping off trailing dashes (default when you
@@ -93,14 +94,27 @@ read_secrets()
 # Periodically read NES memory to get a list of high scores. We tweet
 # out a new high score whenever it appears in the list.
 last_entries = []
+ram = None
+
 while True:
+    if not nes.fceu.is_shm_available():
+        #print('shm gone')
+        ram = None
+
+    elif not ram:
+        #print('opening shm')
+        try:
+            ram = nes.fceu.open_shm()
+        except FileNotFoundError:
+            time.sleep(DELAY)
+            continue
+    
     # Make sure tetris is being played
     if not nes.fceu.is_tetris_running():
         time.sleep(DELAY)
         continue
-    
+
     try:
-        ram = nes.fceu.open_shm()
         entries = nes.tetris.get_high_scores(ram)
         
     except FileNotFoundError:
