@@ -41,7 +41,7 @@ import sys
 from nes.tetris import HighScoreEntry
 
 # How frequently to check for a new high score
-DELAY = 1
+DELAY = 2
 
 IGNORED_ENTRIES = (
     HighScoreEntry(1, 'A', 'HOWARD', 10000, 9),
@@ -102,6 +102,8 @@ while True:
     if not nes.fceu.is_shm_available():
         #print('shm gone')
         ram = None
+        time.sleep(DELAY)
+        continue
 
     if not ram:
         #print('opening shm')
