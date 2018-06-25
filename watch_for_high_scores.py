@@ -111,19 +111,6 @@ while True:
             time.sleep(DELAY)
             continue
     
-    # Make sure tetris is being played
-    if not nes.fceu.is_tetris_running():
-        time.sleep(DELAY)
-        continue
-
-    try:
-        entries = nes.tetris.get_high_scores(ram)
-        
-    except FileNotFoundError:
-        # The emulator isn't running apparently
-        time.sleep(DELAY)
-        continue
-
     # Wait for the high-score area of RAM to change
     checksum = 0
     for addr in range(nes.tetris.HIGH_SCORES_START,
@@ -133,6 +120,11 @@ while True:
 
     #new_entries = check_for_new_entries(last_entries, entries)
     if last_checksum != None and checksum != last_checksum:
+        # Make sure tetris is actually being played
+        if not nes.fceu.is_tetris_running():
+            time.sleep(DELAY)
+            continue
+
         # The high-score table has changed. We need to wait until the
         # player has finished entering their score (since it will change
         # on every letter they enter). This happens by watching the
@@ -152,7 +144,6 @@ while True:
                 msg = make_tweet(entry)
                 print(msg)
                 post_tweet(msg)
-
             print('')
 
         last_entries = entries
