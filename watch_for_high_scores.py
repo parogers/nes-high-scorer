@@ -94,6 +94,8 @@ read_secrets()
 # Periodically read NES memory to get a list of high scores. We tweet
 # out a new high score whenever it appears in the list.
 last_entries = []
+last_checksum = None
+checksum = 0
 ram = None
 
 while True:
@@ -101,7 +103,7 @@ while True:
         #print('shm gone')
         ram = None
 
-    elif not ram:
+    if not ram:
         #print('opening shm')
         try:
             ram = nes.fceu.open_shm()
@@ -119,23 +121,32 @@ while True:
         
     except FileNotFoundError:
         # The emulator isn't running apparently
-        pass
-    else:
+        time.sleep(DELAY)
+        continue
+
+    # Wait for the high-score area of RAM to change
+    checksum = 0
+    for addr in range(nes.tetris.HIGH_SCORES_START,
+                      nes.tetris.HIGH_SCORES_END+1):
+        checksum += ram[addr]
+    checksum %= 65536
+
+    #new_entries = check_for_new_entries(last_entries, entries)
+    if last_checksum != None and checksum != last_checksum:
+        # The high-score table has changed. We need to wait until the
+        # player has finished entering their score (since it will change
+        # on every letter they enter). This happens by watching the
+        # play-field area of memory. It gets filled with horizontal
+        # bars on game over (0x4f) then cleared again after the high-score
+        # is entered (0xef)
+        while ram[0x400] != 0xef:
+            time.sleep(0.5)
+
+        # Now we can fetch the proper entries
+        entries = nes.tetris.get_high_scores(ram)
         new_entries = check_for_new_entries(last_entries, entries)
-        if new_entries and last_entries:
-            # The high-score table has changed. We need to wait until the
-            # player has finished entering their score (since it will change
-            # on every letter they enter). This happens by watching the
-            # play-field area of memory. It gets filled with horizontal
-            # bars on game over (0x4f) then cleared again after the high-score
-            # is entered (0xef)
-            while ram[0x400] != 0xef:
-                time.sleep(0.1)
 
-            # Now we can fetch the proper entries
-            entries = nes.tetris.get_high_scores(ram)
-            new_entries = check_for_new_entries(last_entries, entries)
-
+        if new_entries:
             print('*** New high scores:')
             for entry in new_entries:
                 msg = make_tweet(entry)
@@ -145,6 +156,8 @@ while True:
             print('')
 
         last_entries = entries
+
+    last_checksum = checksum
 
     # Some throttling is needed
     time.sleep(DELAY)

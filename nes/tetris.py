@@ -57,12 +57,19 @@ CURRENT_PIECE = 0xbf
 
 LINE_PIECE = 18
 
+HIGH_SCORES_START = 0x700
+HIGH_SCORES_END = 0x74e
+
 def get_high_scores_by_table(ram, table, game_type):
     lst = []
     for count, entry in enumerate(table):
         name = ram[entry.name:entry.name+6]
         score = ram[entry.score:entry.score+3]
         level = ram[entry.level]
+
+        if name[0] == 0xff:
+            # RAM hasn't been initalized yet
+            return None
 
         name = "".join(byte_to_char(ch) for ch in name).strip()
         # Note: the score is BCD encoded
@@ -77,9 +84,13 @@ def get_high_scores_by_table(ram, table, game_type):
 
 def get_high_scores(ram):
     """Extracts and returns the high scores from the given block of RAM."""
-    return (
-        get_high_scores_by_table(ram, HIGH_SCORES_A, 'A') +
-        get_high_scores_by_table(ram, HIGH_SCORES_B, 'B'))
+    a_list = get_high_scores_by_table(ram, HIGH_SCORES_A, 'A')
+    if not a_list:
+        return None
+    b_list = get_high_scores_by_table(ram, HIGH_SCORES_B, 'B')
+    if not b_list:
+        return None
+    return a_list + b_list
 
 if __name__ == '__main__':
     ram = fceu.open_shm()
