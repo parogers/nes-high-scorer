@@ -79,7 +79,7 @@ def check_for_new_entries(old_entries, new_entries):
 def make_tweet(entry):
     # Fix the name by stripping off trailing dashes (default when you
     # enter a high-score)
-    name = entry.name
+    name = entry.name.strip()
     while name and name.endswith('-'):
         name = name[:-1]
     

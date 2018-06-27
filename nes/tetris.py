@@ -47,7 +47,7 @@ HIGH_SCORES_A = (
 
 HIGH_SCORES_B = (
     HighScoreEntry(1, 'B', 0x718, 0x73c, 0x74c),
-    HighScoreEntry(2, 'B', 0x71d, 0x73f, 0x74d),
+    HighScoreEntry(2, 'B', 0x71e, 0x73f, 0x74d),
     HighScoreEntry(3, 'B', 0x724, 0x742, 0x74e),
 )
 
@@ -71,7 +71,7 @@ def get_high_scores_by_table(ram, table, game_type):
             # RAM hasn't been initalized yet
             return None
 
-        name = "".join(byte_to_char(ch) for ch in name).strip()
+        name = "".join(byte_to_char(ch) for ch in name)
         # Note: the score is BCD encoded
         try:
             score = int("".join('%02x' % ch for ch in score))
@@ -91,9 +91,3 @@ def get_high_scores(ram):
     if not b_list:
         return None
     return a_list + b_list
-
-if __name__ == '__main__':
-    ram = fceu.open_shm()
-    for entry in get_high_scores(ram):
-        print(entry.name, entry.score, entry.level)
-
