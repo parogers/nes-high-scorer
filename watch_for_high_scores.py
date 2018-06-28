@@ -43,60 +43,90 @@ from nes.tetris import HighScoreEntry
 # How frequently to check for a new high score
 DELAY = 2
 
-IGNORED_ENTRIES = (
-    HighScoreEntry(1, 'A', 'HOWARD', 10000, 9),
-    HighScoreEntry(2, 'A', 'OTASAN', 7500, 5),
-    HighScoreEntry(3, 'A', 'LANCE', 5000, 0),
-    HighScoreEntry(1, 'B', 'ALEX', 2000, 9),
-    HighScoreEntry(2, 'B', 'TONY', 1000, 5),
-    HighScoreEntry(3, 'B', 'NINTEN', 500, 0),
-)
-
 def get_config_dir():
     return os.path.join(os.getenv('HOME'), '.config', 'nes-high-scorer')
 
-def read_secrets():
-    path = os.path.join(get_config_dir(), 'secrets')
-    return json.loads(open(path).read())
-
-def post_tweet(msg):
-    secrets = read_secrets()
-    api = twitter.Api(
-        consumer_key=secrets['consumer_key'],
-        consumer_secret=secrets['consumer_secret'],
-        access_token_key=secrets['access_token_key'],
-        access_token_secret=secrets['access_token_secret'])
-    api.VerifyCredentials()
-
-    status = api.PostUpdate(msg)
-    print(status, status.text)
-
-def check_for_new_entries(old_entries, new_entries):
-    return [
-        entry for entry in new_entries
-        if entry not in old_entries and not entry in IGNORED_ENTRIES]
-
-def make_tweet(entry):
-    # Fix the name by stripping off trailing dashes (default when you
-    # enter a high-score)
-    name = entry.name.strip()
-    while name and name.endswith('-'):
-        name = name[:-1]
+class Tweeter:
+    def __init__(self, secrets_path):
+        self.secrets_path = secrets_path
+        # Santiy check for secrets
+        self.read_secrets()
     
-    # bytes([0xF0, 0x9F, 0x8E, 0x86])
-    fmt = 'Congrats {}!!! You scored {:,} pts and reached L{} ({}-type)'
-    return fmt.format(
-        name, entry.score, entry.level, entry.game_type)
+    def read_secrets(self):
+        return json.loads(open(self.secrets_path).read())
 
-# Santiy check for secrets
-read_secrets()
+    def post_tweet(self, msg):
+        secrets = read_secrets()
+        api = twitter.Api(
+            consumer_key=secrets['consumer_key'],
+            consumer_secret=secrets['consumer_secret'],
+            access_token_key=secrets['access_token_key'],
+            access_token_secret=secrets['access_token_secret'])
+        api.VerifyCredentials()
+
+        status = api.PostUpdate(msg)
+        print(status, status.text)
+
+    def make_tweet(self, entry):
+        # Fix the name by stripping off trailing dashes (default when you
+        # enter a high-score)
+        name = entry.name.strip()
+        while name and name.endswith('-'):
+            name = name[:-1]
+
+        # bytes([0xF0, 0x9F, 0x8E, 0x86])
+        fmt = 'Congrats {}!!! You scored {:,} pts and reached L{} ({}-type) #tetris'
+        return fmt.format(
+            name, entry.score, entry.level, entry.game_type)
+
+class HighScoreTracker:
+    def __init__(self):
+        self.entries = []
+
+    def update(self, snapshot):
+        """Adds new high scores to the running list, given a snapshot of
+        the high-score table. This will return a list of newly added 
+        entries (ignoring anything already in this table)"""
+
+        # We only look at the parts of the high-score that are relevant
+        # (eg rank can change, but it's still considered the same score if
+        # other details match up)
+        def essential(entry):
+            return (entry.game_type, entry.name, entry.score, entry.level)
+        past_entries = set(
+            map(essential, self.entries+list(nes.tetris.DEFAULT_HIGH_SCORES)))
+
+        print('Tracked entries:')
+        for arg in past_entries:
+            print(repr(arg))
+
+        new_entries = [
+            entry for entry in snapshot
+            if essential(entry) not in past_entries]
+
+        print('')
+
+        print('New entries:')
+        for entry in new_entries:
+            print(entry)
+
+        if not new_entries: print('none')
+
+        print('')
+
+        #self.entries.update(new_entries)
+        self.entries = snapshot
+        return new_entries
 
 # Periodically read NES memory to get a list of high scores. We tweet
 # out a new high score whenever it appears in the list.
-last_entries = []
 last_checksum = None
 checksum = 0
 ram = None
+score_tracker = HighScoreTracker()
+
+secrets_path = os.path.join(get_config_dir(), 'secrets')
+tweeter = Tweeter(secrets_path)
 
 while True:
     if not nes.fceu.is_shm_available():
@@ -120,7 +150,6 @@ while True:
         checksum += ram[addr]
     checksum %= 65536
 
-    #new_entries = check_for_new_entries(last_entries, entries)
     if last_checksum != None and checksum != last_checksum:
         # Make sure tetris is actually being played
         if not nes.fceu.is_tetris_running():
@@ -133,22 +162,21 @@ while True:
         # play-field area of memory. It gets filled with horizontal
         # bars on game over (0x4f) then cleared again after the high-score
         # is entered (0xef)
-        while ram[0x400] != 0xef:
+        while ram[nes.tetris.PLAY_AREA_START] != 0xef:
             time.sleep(0.5)
 
         # Now we can fetch the proper entries
         entries = nes.tetris.get_high_scores(ram)
-        new_entries = check_for_new_entries(last_entries, entries)
+        #new_entries = check_for_new_entries(last_entries, entries)
+        new_entries = score_tracker.update(entries)
 
         if new_entries:
             print('*** New high scores:')
             for entry in new_entries:
-                msg = make_tweet(entry)
+                msg = tweeter.make_tweet(entry)
                 print(msg)
                 post_tweet(msg)
             print('')
-
-        last_entries = entries
 
     last_checksum = checksum
 

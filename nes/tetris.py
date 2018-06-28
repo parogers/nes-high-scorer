@@ -26,18 +26,8 @@ def byte_to_char(ch):
         return ' '
 
 # TODO - this is a bit ugly
-high_score_entry = namedtuple(
+HighScoreEntry = namedtuple(
     'HighScoreEntry', ('rank', 'game_type', 'name', 'score', 'level'))
-
-class HighScoreEntry(high_score_entry):
-    # We don't want to include ranking in the equality test (since scores
-    # can move around in ranking, but they are the same score)
-    def __eq__(self, other):
-        return (self.name == other.name and
-                self.score == other.score and
-                self.level == other.level and
-                self.game_type == other.game_type)
-        
 
 HIGH_SCORES_A = (
     HighScoreEntry(1, 'A', 0x700, 0x730, 0x748),
@@ -51,6 +41,15 @@ HIGH_SCORES_B = (
     HighScoreEntry(3, 'B', 0x724, 0x742, 0x74e),
 )
 
+DEFAULT_HIGH_SCORES = (
+    HighScoreEntry(1, 'A', 'HOWARD', 10000, 9),
+    HighScoreEntry(2, 'A', 'OTASAN', 7500, 5),
+    HighScoreEntry(3, 'A', 'LANCE ', 5000, 0),
+    HighScoreEntry(1, 'B', 'ALEX  ', 2000, 9),
+    HighScoreEntry(2, 'B', 'TONY  ', 1000, 5),
+    HighScoreEntry(3, 'B', 'NINTEN', 500, 0),
+)
+
 VERTICAL_POS = 0x61
 NEXT_PIECE = 0x62
 CURRENT_PIECE = 0xbf
@@ -59,6 +58,8 @@ LINE_PIECE = 18
 
 HIGH_SCORES_START = 0x700
 HIGH_SCORES_END = 0x74e
+
+PLAY_AREA_START = 0x400
 
 def get_high_scores_by_table(ram, table, game_type):
     lst = []
