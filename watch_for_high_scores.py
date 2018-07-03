@@ -142,6 +142,10 @@ while True:
         except FileNotFoundError:
             time.sleep(DELAY)
             continue
+
+        # Update the high-score table
+        entries = nes.tetris.get_high_scores(ram)
+        score_tracker.update(entries)
     
     # Wait for the high-score area of RAM to change
     checksum = 0
@@ -175,7 +179,7 @@ while True:
             for entry in new_entries:
                 msg = tweeter.make_tweet(entry)
                 print(msg)
-                post_tweet(msg)
+                tweeter.post_tweet(msg)
             print('')
 
     last_checksum = checksum
