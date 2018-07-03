@@ -56,7 +56,7 @@ class Tweeter:
         return json.loads(open(self.secrets_path).read())
 
     def post_tweet(self, msg):
-        secrets = read_secrets()
+        secrets = self.read_secrets()
         api = twitter.Api(
             consumer_key=secrets['consumer_key'],
             consumer_secret=secrets['consumer_secret'],
