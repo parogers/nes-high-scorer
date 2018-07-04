@@ -43,6 +43,9 @@ from nes.tetris import HighScoreEntry
 # How frequently to check for a new high score
 DELAY = 2
 
+FILL_MARKER = 0x4f
+CLEAR_MARKER = 0xef
+
 def get_config_dir():
     return os.path.join(os.getenv('HOME'), '.config', 'nes-high-scorer')
 
@@ -118,60 +121,61 @@ class HighScoreTracker:
         self.entries = snapshot
         return new_entries
 
-# Periodically read NES memory to get a list of high scores. We tweet
-# out a new high score whenever it appears in the list.
-last_checksum = None
-checksum = 0
+# The NES ram (shared memory block)
 ram = None
+# Whether we think the player has just finished a game (and therefore
+# should check the high-score table for updates)
+finishing_game = False
 score_tracker = HighScoreTracker()
-
-secrets_path = os.path.join(get_config_dir(), 'secrets')
-tweeter = Tweeter(secrets_path)
+tweeter = Tweeter(os.path.join(get_config_dir(), 'secrets'))
 
 while True:
     if not nes.fceu.is_shm_available():
-        #print('shm gone')
         ram = None
         time.sleep(DELAY)
         continue
 
     if not ram:
-        #print('opening shm')
         try:
             ram = nes.fceu.open_shm()
         except FileNotFoundError:
             time.sleep(DELAY)
             continue
 
-        # Update the high-score table
-        entries = nes.tetris.get_high_scores(ram)
-        score_tracker.update(entries)
-    
-    # Wait for the high-score area of RAM to change
-    checksum = 0
-    for addr in range(nes.tetris.HIGH_SCORES_START,
-                      nes.tetris.HIGH_SCORES_END+1):
-        checksum += ram[addr]
-    checksum %= 65536
+        # Update the high-score table. Wait a bit for the ROM to initialize
+        # while reading the high-score table.
+        finishing_game = False
+        while True:
+            entries = nes.tetris.get_high_scores(ram)
+            if entries:
+                score_tracker.update(entries)
+                break
+            time.sleep(1)
 
-    if last_checksum != None and checksum != last_checksum:
-        # Make sure tetris is actually being played
+    # Either the game is waiting to be played, or the game is currently
+    # being played. Wait for the game field to fill with 'bar pieces'
+    # which indicate the game is over.
+    if not finishing_game and ram[nes.tetris.PLAY_AREA_START] == FILL_MARKER:
+        # The game is finished. Wait until the field is cleared before
+        # checking high scores. (happens after the user enters one)
+        print('finishing game')
+        finishing_game = True
+
+    # When the player gets a game over, the play area fills with 'bar'
+    # pieces. Then it waits for the player to enter a high score before
+    # clearing those pieces again. At that point we can check for a
+    # new high score entry.
+    if finishing_game and ram[nes.tetris.PLAY_AREA_START] == CLEAR_MARKER:
+        # Make sure tetris is actually being played. This check is somewhat
+        # expensive so we do that here.
         if not nes.fceu.is_tetris_running():
             time.sleep(DELAY)
             continue
 
-        # The high-score table has changed. We need to wait until the
-        # player has finished entering their score (since it will change
-        # on every letter they enter). This happens by watching the
-        # play-field area of memory. It gets filled with horizontal
-        # bars on game over (0x4f) then cleared again after the high-score
-        # is entered (0xef)
-        while ram[nes.tetris.PLAY_AREA_START] != 0xef:
-            time.sleep(0.5)
+        print('game is finally finished')
 
         # Now we can fetch the proper entries
         entries = nes.tetris.get_high_scores(ram)
-        #new_entries = check_for_new_entries(last_entries, entries)
         new_entries = score_tracker.update(entries)
 
         if new_entries:
@@ -179,10 +183,10 @@ while True:
             for entry in new_entries:
                 msg = tweeter.make_tweet(entry)
                 print(msg)
-                tweeter.post_tweet(msg)
+                #tweeter.post_tweet(msg)
             print('')
 
-    last_checksum = checksum
+        finishing_game = False
 
     # Some throttling is needed
     time.sleep(DELAY)
