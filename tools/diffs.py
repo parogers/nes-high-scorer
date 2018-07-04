@@ -19,19 +19,30 @@
 import mmap
 import nes, nes.fceu
 
+MODE_SAME = 0
+MODE_CHANGED = 1
+
 m = nes.fceu.open_shm()
 
 snapshot = m[:]
 tracking = set(range(len(snapshot)))
 history = [[d] for d in snapshot]
 
+mode = MODE_CHANGED
 while True:
-    line = input("> ")
+    if mode == MODE_CHANGED: op = '!='
+    else: op = '=='
+    line = input("%s> " % op).strip()
+    if line == '=':
+        mode = MODE_SAME
+    elif line == '!':
+        mode = MODE_CHANGED
 
     new_snapshot = m[:]
     new_tracking = []
     for pos in tracking:
-        if snapshot[pos] != new_snapshot[pos]:
+        if ((mode == MODE_CHANGED and snapshot[pos] != new_snapshot[pos]) or
+            (mode == MODE_SAME and snapshot[pos] == new_snapshot[pos])):
             new_tracking.append(pos)
             history[pos].append(new_snapshot[pos])
 
