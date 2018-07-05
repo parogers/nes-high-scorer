@@ -23,10 +23,11 @@ import os
 
 try:
     addr = int(sys.argv[1], 16)
-    data = int(sys.argv[2])
+    data_list = [int(arg) for arg in sys.argv[2:]]
 except:
-    print('usage: %s addr byte' % os.path.basename(sys.argv[0]))
+    print('usage: %s addr byte...' % os.path.basename(sys.argv[0]))
     sys.exit()
 
 m = nes.fceu.open_shm()
-m[addr] = data
+for count, byte in enumerate(data_list):
+    m[addr+count] = byte

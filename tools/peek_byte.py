@@ -24,8 +24,13 @@ import os
 try:
     addr = int(sys.argv[1], 16)
 except:
-    print('usage: %s addr' % os.path.basename(sys.argv[0]))
+    print('usage: %s addr [count]' % os.path.basename(sys.argv[0]))
     sys.exit()
 
+try:
+    count = int(sys.argv[2])
+except:
+    count = 1
+
 m = nes.fceu.open_shm()
-print(m[addr])
+print(" ".join(str(n) for n in m[addr:addr+count]))
