@@ -19,7 +19,7 @@
 
 import twitter
 import os
-import nes, nes.fceu, nes.tetris
+import nes, nes.fceu
 import time
 import sys
 
@@ -37,9 +37,10 @@ import sys
 # file 'secrets.sample'.
 #
 
-from nes.tetris import HighScoreEntry
+from nes.tetris import DEFAULT_HIGH_SCORES
 from tweeting import Tweeter
 from gamestate import GameState
+import argparse
 
 # How frequently to check for a new high score
 DELAY = 0.5
@@ -62,7 +63,7 @@ class HighScoreTracker:
         def essential(entry):
             return (entry.game_type, entry.name, entry.score, entry.level)
         past_entries = set(
-            map(essential, self.entries+list(nes.tetris.DEFAULT_HIGH_SCORES)))
+            map(essential, self.entries + list(DEFAULT_HIGH_SCORES)))
 
         print('Tracked entries:')
         for arg in past_entries:
@@ -91,19 +92,35 @@ ram = None
 score_tracker = HighScoreTracker()
 tweeter = Tweeter(os.path.join(get_config_dir(), 'secrets'))
 
+points = []
+height = []
+
 def started():
     print('started')
+    points = []
+    height = []
 
 def finishing():
     print('finishing')
 
 def next_piece():
     print('next piece')
+    #points.append(
+
+def rom_ready():
+    # Update the high-score table. Wait a bit for the ROM to initialize
+    # while reading the high-score table.
+    while True:
+        entries = game_state.get_high_scores()
+        if entries:
+            score_tracker.update(entries)
+            break
+        time.sleep(1)
 
 def update_high_scores():
     print('done')
     # Now we can fetch the proper entries
-    entries = nes.tetris.get_high_scores(ram)
+    entries = game_state.get_high_scores()
     new_entries = score_tracker.update(entries)
 
     if new_entries:
@@ -119,6 +136,7 @@ game_state.connect('started-game', started)
 game_state.connect('finishing-game', finishing)
 game_state.connect('finished-game', update_high_scores)
 game_state.connect('next-piece', next_piece)
+game_state.connect('rom-ready', rom_ready)
 
 while True:
     if not nes.fceu.is_shm_available():
@@ -133,15 +151,6 @@ while True:
         except FileNotFoundError:
             time.sleep(DELAY)
             continue
-
-        # Update the high-score table. Wait a bit for the ROM to initialize
-        # while reading the high-score table.
-        while True:
-            entries = nes.tetris.get_high_scores(ram)
-            if entries:
-                score_tracker.update(entries)
-                break
-            time.sleep(1)
 
         game_state.rom_started(ram)
 

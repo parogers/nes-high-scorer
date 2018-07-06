@@ -83,6 +83,7 @@ class GameState:
             # Make the 'current score' non-zero, so we can use this to detect
             # when a new game is started. (ie gets zeroed out by the game)
             self.ram[tetris.CURRENT_SCORE_START] = 1
+            self.emit('rom-ready')
 
     def rom_stopped(self):
         self.ram = None
@@ -139,3 +140,9 @@ class GameState:
                 self.state = self.IDLE
 
         self.last_score = score
+
+    def get_high_scores(self):
+        return tetris.get_high_scores(self.ram)
+
+    def get_current_score(self):
+        return tetris.get_current_score(self.ram)
