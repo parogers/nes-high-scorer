@@ -42,7 +42,7 @@ from tweeting import Tweeter
 from gamestate import GameState
 
 # How frequently to check for a new high score
-DELAY = 2
+DELAY = 0.5
 
 def get_config_dir():
     return os.path.join(os.getenv('HOME'), '.config', 'nes-high-scorer')
@@ -97,6 +97,9 @@ def started():
 def finishing():
     print('finishing')
 
+def next_piece():
+    print('next piece')
+
 def update_high_scores():
     print('done')
     # Now we can fetch the proper entries
@@ -115,10 +118,12 @@ game_state = GameState()
 game_state.connect('started-game', started)
 game_state.connect('finishing-game', finishing)
 game_state.connect('finished-game', update_high_scores)
+game_state.connect('next-piece', next_piece)
 
 while True:
     if not nes.fceu.is_shm_available():
         ram = None
+        game_state.rom_stopped()
         time.sleep(DELAY)
         continue
 
@@ -138,10 +143,10 @@ while True:
                 break
             time.sleep(1)
 
-        game_state.started(ram)
+        game_state.rom_started(ram)
 
     # Periodically update the game state
-    game_state.update(ram)
+    game_state.update()
 
     # Some throttling is needed so we don't chew up CPU
     time.sleep(DELAY)

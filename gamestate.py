@@ -18,7 +18,10 @@
 #
 
 import collections
-import nes, nes.fceu, nes.tetris
+import time
+
+import nes, nes.fceu
+from nes import tetris
 
 FILL_MARKER = 0x4f
 CLEAR_MARKER = 0xef
@@ -51,6 +54,10 @@ class GameState:
     PLAYING = 1
     FINISHING = 2
 
+    playing_tetris = False
+    last_vertical_pos = -1
+    last_score = -1
+
     def __init__(self):
         self.dispatcher = Dispatcher()
 
@@ -58,42 +65,77 @@ class GameState:
     remove = delegate('dispatcher', 'remove')
     emit = delegate('dispatcher', 'emit')
 
-    def started(self, ram):
+    def rom_started(self, ram):
         '''Called when the NES rom is first started'''
         self.state = self.IDLE
-        # Make the 'current score' non-zero, so we can use this to detect
-        # when a new game is started. (ie gets zeroed out by the game)
-        ram[nes.tetris.CURRENT_SCORE_START] = 1
+        self.ram = ram
+        # Make sure tetris is actually being played right now
+        self.playing_tetris = nes.fceu.is_tetris_running()
 
-    def update(self, ram):
+        if self.playing_tetris:
+            print('playing tetris')
+
+            # Wait until the score area is zeroed out so we can set our score
+            # flag below without it getting clobbered.
+            while ram[nes.tetris.CURRENT_SCORE_START] == 255:
+                time.sleep(0.5)
+
+            # Make the 'current score' non-zero, so we can use this to detect
+            # when a new game is started. (ie gets zeroed out by the game)
+            self.ram[tetris.CURRENT_SCORE_START] = 1
+
+    def rom_stopped(self):
+        self.ram = None
+
+    def update(self):
         '''Update this game state with a snapshot of the NES ram'''
+
+        if not self.playing_tetris:
+            return
+
+        # Handle the case where the game goes into demo mode, which triggers
+        # a start event, but never reaches the game over screen to trigger
+        # the finished event. So we check for the score resetting to zero
+        # which indicates a new game has started.
+        score = tetris.get_current_score_bytes(self.ram)
+        if (self.state == self.PLAYING and
+            score == (0, 0, 0) and
+            self.last_score != score):
+
+            self.state = self.IDLE
+
         if self.state == self.IDLE:
             # We know a game has started when the 'current high score' memory
             # location is zeroed out. This works because the game holds the
             # value from the last game played, and playing a game always
             # yields a non-zero score. The exception is the first game ever
             # played, but that case is taken care of in 'started' above.
-            if ram[nes.tetris.CURRENT_SCORE_START] == 0:
+            if score == (0, 0, 0):
                 self.state = self.PLAYING
                 self.emit('started-game')
 
         elif self.state == self.PLAYING:
-            if ram[nes.tetris.PLAY_AREA_START] == FILL_MARKER:
-                # Make sure tetris is actually being played. This check is
-                # somewhat expensive so we do that here.
-                if not nes.fceu.is_tetris_running():
-                    return
-
+            vertical_pos = self.ram[tetris.VERTICAL_POS]
+            
+            if self.ram[tetris.PLAY_AREA_START] == FILL_MARKER:
                 # The game is finished. Wait until the field is cleared before
                 # checking high scores. (happens after the user enters one)
                 self.state = self.FINISHING
                 self.emit('finishing-game')
+
+            elif vertical_pos < self.last_vertical_pos:
+                # Advanced to the next piece
+                self.emit('next-piece')
+
+            self.last_vertical_pos = vertical_pos
 
         elif self.state == self.FINISHING:
             # When the player gets a game over, the play area fills with 'bar'
             # pieces. Then it waits for the player to enter a high score before
             # clearing those pieces again. At that point we can check for a
             # new high score entry.
-            if ram[nes.tetris.PLAY_AREA_START] == CLEAR_MARKER:
+            if self.ram[tetris.PLAY_AREA_START] == CLEAR_MARKER:
                 self.emit('finished-game')
                 self.state = self.IDLE
+
+        self.last_score = score

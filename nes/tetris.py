@@ -96,7 +96,13 @@ def get_high_scores(ram):
         return None
     return a_list + b_list
 
+def get_current_score_bytes(ram):
+    return (ram[CURRENT_SCORE_START],
+            ram[CURRENT_SCORE_START+1],
+            ram[CURRENT_SCORE_START+2])
+
 def get_current_score(ram):
     '''Returns the score of the game currently being played'''
-    lst = ram[CURRENT_SCORE_START:CURRENT_SCORE_START+CURRENT_SCORE_BYTES]
+    #lst = ram[CURRENT_SCORE_START:CURRENT_SCORE_START+CURRENT_SCORE_BYTES]
+    lst = get_current_score_bytes(ram)
     return ''.join('%02x' % n for n in reversed(lst))
