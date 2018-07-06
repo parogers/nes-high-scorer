@@ -18,7 +18,6 @@
 #
 
 import twitter
-import json
 import os
 import nes, nes.fceu, nes.tetris
 import time
@@ -39,48 +38,14 @@ import sys
 #
 
 from nes.tetris import HighScoreEntry
+from tweeting import Tweeter
+from gamestate import GameState
 
 # How frequently to check for a new high score
 DELAY = 2
 
-FILL_MARKER = 0x4f
-CLEAR_MARKER = 0xef
-
 def get_config_dir():
     return os.path.join(os.getenv('HOME'), '.config', 'nes-high-scorer')
-
-class Tweeter:
-    def __init__(self, secrets_path):
-        self.secrets_path = secrets_path
-        # Santiy check for secrets
-        self.read_secrets()
-    
-    def read_secrets(self):
-        return json.loads(open(self.secrets_path).read())
-
-    def post_tweet(self, msg):
-        secrets = self.read_secrets()
-        api = twitter.Api(
-            consumer_key=secrets['consumer_key'],
-            consumer_secret=secrets['consumer_secret'],
-            access_token_key=secrets['access_token_key'],
-            access_token_secret=secrets['access_token_secret'])
-        api.VerifyCredentials()
-
-        status = api.PostUpdate(msg)
-        print(status, status.text)
-
-    def make_tweet(self, entry):
-        # Fix the name by stripping off trailing dashes (default when you
-        # enter a high-score)
-        name = entry.name.strip()
-        while name and name.endswith('-'):
-            name = name[:-1]
-
-        # bytes([0xF0, 0x9F, 0x8E, 0x86])
-        fmt = 'Congrats {}!!! You scored {:,} pts and reached L{} ({}-type) #tetris'
-        return fmt.format(
-            name, entry.score, entry.level, entry.game_type)
 
 class HighScoreTracker:
     def __init__(self):
@@ -123,11 +88,33 @@ class HighScoreTracker:
 
 # The NES ram (shared memory block)
 ram = None
-# Whether we think the player has just finished a game (and therefore
-# should check the high-score table for updates)
-finishing_game = False
 score_tracker = HighScoreTracker()
 tweeter = Tweeter(os.path.join(get_config_dir(), 'secrets'))
+
+def started():
+    print('started')
+
+def finishing():
+    print('finishing')
+
+def update_high_scores():
+    print('done')
+    # Now we can fetch the proper entries
+    entries = nes.tetris.get_high_scores(ram)
+    new_entries = score_tracker.update(entries)
+
+    if new_entries:
+        print('*** New high scores:')
+        for entry in new_entries:
+            msg = tweeter.make_tweet(entry)
+            print(msg)
+            #tweeter.post_tweet(msg)
+        print('')
+
+game_state = GameState()
+game_state.connect('started-game', started)
+game_state.connect('finishing-game', finishing)
+game_state.connect('finished-game', update_high_scores)
 
 while True:
     if not nes.fceu.is_shm_available():
@@ -144,7 +131,6 @@ while True:
 
         # Update the high-score table. Wait a bit for the ROM to initialize
         # while reading the high-score table.
-        finishing_game = False
         while True:
             entries = nes.tetris.get_high_scores(ram)
             if entries:
@@ -152,41 +138,10 @@ while True:
                 break
             time.sleep(1)
 
-    # Either the game is waiting to be played, or the game is currently
-    # being played. Wait for the game field to fill with 'bar pieces'
-    # which indicate the game is over.
-    if not finishing_game and ram[nes.tetris.PLAY_AREA_START] == FILL_MARKER:
-        # The game is finished. Wait until the field is cleared before
-        # checking high scores. (happens after the user enters one)
-        print('finishing game')
-        finishing_game = True
+        game_state.started(ram)
 
-    # When the player gets a game over, the play area fills with 'bar'
-    # pieces. Then it waits for the player to enter a high score before
-    # clearing those pieces again. At that point we can check for a
-    # new high score entry.
-    if finishing_game and ram[nes.tetris.PLAY_AREA_START] == CLEAR_MARKER:
-        # Make sure tetris is actually being played. This check is somewhat
-        # expensive so we do that here.
-        if not nes.fceu.is_tetris_running():
-            time.sleep(DELAY)
-            continue
+    # Periodically update the game state
+    game_state.update(ram)
 
-        print('game is finally finished')
-
-        # Now we can fetch the proper entries
-        entries = nes.tetris.get_high_scores(ram)
-        new_entries = score_tracker.update(entries)
-
-        if new_entries:
-            print('*** New high scores:')
-            for entry in new_entries:
-                msg = tweeter.make_tweet(entry)
-                print(msg)
-                #tweeter.post_tweet(msg)
-            print('')
-
-        finishing_game = False
-
-    # Some throttling is needed
+    # Some throttling is needed so we don't chew up CPU
     time.sleep(DELAY)
