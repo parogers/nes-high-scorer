@@ -17,14 +17,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import itertools
 import collections
 import time
 
 import nes, nes.fceu
 from nes import tetris
-
-FILL_MARKER = 0x4f
-CLEAR_MARKER = 0xef
 
 class Dispatcher:
     def __init__(self):
@@ -118,7 +116,7 @@ class GameState:
         elif self.state == self.PLAYING:
             vertical_pos = self.ram[tetris.VERTICAL_POS]
             
-            if self.ram[tetris.PLAY_AREA_START] == FILL_MARKER:
+            if self.ram[tetris.PLAY_AREA_START] == tetris.PLAY_AREA_BAR_FILL:
                 # The game is finished. Wait until the field is cleared before
                 # checking high scores. (happens after the user enters one)
                 self.state = self.FINISHING
@@ -135,7 +133,7 @@ class GameState:
             # pieces. Then it waits for the player to enter a high score before
             # clearing those pieces again. At that point we can check for a
             # new high score entry.
-            if self.ram[tetris.PLAY_AREA_START] == CLEAR_MARKER:
+            if self.ram[tetris.PLAY_AREA_START] == PLAY_AREA_EMPTY:
                 self.emit('finished-game')
                 self.state = self.IDLE
 
@@ -146,3 +144,18 @@ class GameState:
 
     def get_current_score(self):
         return tetris.get_current_score(self.ram)
+
+    def get_play_area(self):
+        ram_start = tetris.PLAY_AREA_START
+        rows = tetris.PLAY_AREA_ROWS
+        cols = tetris.PLAY_AREA_COLS
+
+        ram_slice = slice(ram_start, ram_start+rows*cols)
+        ram_iter = iter(self.ram[ram_slice])
+
+        area = [
+            [next(ram_iter) for col in range(cols)]
+            for row in range(rows)
+        ]
+
+        return area

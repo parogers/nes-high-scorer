@@ -63,6 +63,15 @@ CURRENT_SCORE_START = 0x73
 CURRENT_SCORE_BYTES = 3
 
 PLAY_AREA_START = 0x400
+PLAY_AREA_BYTES = 200
+PLAY_AREA_ROWS = 20
+PLAY_AREA_COLS = 10
+
+PLAY_AREA_BAR_FILL = 0x4f
+PLAY_AREA_EMPTY = 0xef
+PLAY_AREA_WHITE = 0x7b
+PLAY_AREA_CYAN = 0x7c
+PLAY_AREA_BLUE = 0x7d
 
 def get_high_scores_by_table(ram, table, game_type):
     lst = []
@@ -105,4 +114,4 @@ def get_current_score(ram):
     '''Returns the score of the game currently being played'''
     #lst = ram[CURRENT_SCORE_START:CURRENT_SCORE_START+CURRENT_SCORE_BYTES]
     lst = get_current_score_bytes(ram)
-    return ''.join('%02x' % n for n in reversed(lst))
+    return int(''.join('%02x' % n for n in reversed(lst)))
