@@ -19,8 +19,14 @@
 import mmap
 import nes, nes.fceu
 
+def parse_int(value):
+    if str(value).startswith('0x'):
+        return int(value, 16)
+    return int(value)
+
 MODE_SAME = 0
 MODE_CHANGED = 1
+MODE_EQUALS_VALUE = 2
 
 m = nes.fceu.open_shm()
 
@@ -33,16 +39,24 @@ while True:
     if mode == MODE_CHANGED: op = '!='
     else: op = '=='
     line = input("%s> " % op).strip()
+
     if line == '=':
         mode = MODE_SAME
+    elif line.startswith('='):
+        mode = MODE_EQUALS_VALUE
+        mode_match = parse_int(line[1:])
     elif line == '!':
         mode = MODE_CHANGED
 
     new_snapshot = m[:]
     new_tracking = []
     for pos in tracking:
-        if ((mode == MODE_CHANGED and snapshot[pos] != new_snapshot[pos]) or
-            (mode == MODE_SAME and snapshot[pos] == new_snapshot[pos])):
+        match = (
+            (mode == MODE_CHANGED and snapshot[pos] != new_snapshot[pos]) or
+            (mode == MODE_SAME and snapshot[pos] == new_snapshot[pos]) or
+            (mode == MODE_EQUALS_VALUE and new_snapshot[pos] == mode_match))
+
+        if match:
             new_tracking.append(pos)
             history[pos].append(new_snapshot[pos])
 

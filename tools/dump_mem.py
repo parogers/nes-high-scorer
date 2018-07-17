@@ -31,11 +31,13 @@ MARK_TIME = 1
 def fhex(n, digits):
     return '{number:0{size}x}'.format(number=n, size=digits)
 
-def dump_line(ram, mark_time, addr, cols):
+def dump_line(ram, mark_time, start_addr, addr, cols):
     lst = [
-        fhex(addr, 4)
+        fhex(start_addr+addr, 4)
     ]
     for offset in range(cols):
+        if addr+offset >= len(ram): break
+        
         value = fhex(ram[addr+offset], 2)
 
         if mark_time and mark_time[addr+offset] > 0:
@@ -44,22 +46,35 @@ def dump_line(ram, mark_time, addr, cols):
         lst.append(value)
     return lst
 
-def dump_ram(ram, last_ram):
+def dump_ram(start_addr, ram, last_ram):
     cols = 16
     addr = 0
     half_way = len(ram)//2
 
-    assert(len(ram) % cols == 0)
-
     while addr < half_way:
         line = (
-            dump_line(ram, last_ram, addr, cols) + 
+            dump_line(ram, last_ram, start_addr, addr, cols) + 
             ['--'] + 
-            dump_line(ram, last_ram, half_way+addr, cols)
+            dump_line(ram, last_ram, start_addr, half_way+addr, cols)
         )
         print(' '.join(line))
 
-        addr += 32
+        addr += cols
+
+###
+
+start_addr = 0
+stop_addr = 0x800-1
+
+try:
+    start_addr = int(sys.argv[1], 16)
+except:
+    pass
+
+try:
+    stop_addr = int(sys.argv[2], 16)
+except:
+    pass
 
 # Start by clearing the screen
 print('\033[2J')
@@ -71,8 +86,8 @@ while True:
     now = time.time()
     # Relocate the cursor and redraw overtop of the same matrix each time
     print('\033[0;0f', end='')
-    ram_copy = ram[:]
-    dump_ram(ram_copy, mark_time)
+    ram_copy = ram[start_addr:stop_addr+1]
+    dump_ram(start_addr, ram_copy, mark_time)
 
     if last_time != None:
         for addr, (byte, last_byte) in enumerate(zip(ram_copy, last_ram)):

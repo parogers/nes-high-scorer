@@ -21,9 +21,14 @@ import sys
 import nes, nes.fceu
 import os
 
+def parse_int(txt):
+    if txt.lower().startswith('0x'):
+        return int(txt, 16)
+    return int(txt)
+
 try:
     addr = int(sys.argv[1], 16)
-    data_list = [int(arg) for arg in sys.argv[2:]]
+    data_list = [parse_int(arg) for arg in sys.argv[2:]]
 except:
     print('usage: %s addr byte...' % os.path.basename(sys.argv[0]))
     sys.exit()
