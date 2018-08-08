@@ -20,6 +20,7 @@
 import twitter
 import os
 import nes, nes.fceu
+from nes import tetris
 import time
 import sys
 
@@ -93,7 +94,7 @@ score_tracker = HighScoreTracker()
 tweeter = Tweeter(os.path.join(get_config_dir(), 'secrets'))
 
 points = []
-height = []
+heights = []
 
 def started():
     print('started')
@@ -105,7 +106,21 @@ def finishing():
 
 def next_piece():
     print('next piece')
-    #points.append(
+    points.append(game_state.get_current_score())
+
+    height = 0
+    area = game_state.get_play_area()
+    for row, row_data in enumerate(area):
+        for col, cell in enumerate(row_data):
+            if cell != tetris.PLAY_AREA_EMPTY:
+                height = len(area)-row-1
+                break
+        if height > 0: break
+
+    heights.append(height)
+
+    print(points)
+    print(heights)
 
 def rom_ready():
     # Update the high-score table. Wait a bit for the ROM to initialize
@@ -156,6 +171,11 @@ while True:
 
     # Periodically update the game state
     game_state.update()
+
+    #area = game_state.get_play_area()
+    #print('')
+    #print('\n'.join(
+    #    ' '.join('%02x' % value for value in line) for line in area))
 
     # Some throttling is needed so we don't chew up CPU
     time.sleep(DELAY)
